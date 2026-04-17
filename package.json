@@ -1,16 +1,25 @@
 {
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
   "dependencies": {
     "@gsap/react": "^2.1.2",
+    "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
-    "autoprefixer": "^10.5.0",
+    "autoprefixer": "^10.4.18",
     "gsap": "^3.15.0",
+    "lightningcss": "^1.32.0",
+    "lightningcss-darwin-arm64": "^1.32.0",
     "lucide-react": "^1.8.0",
     "next": "^16.2.4",
-    "postcss": "^8.5.10",
+    "postcss": "^8.4.35",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "tailwindcss": "^4.2.2",
+    "tailwindcss": "^3.4.1",
     "typescript": "^6.0.3"
   }
 }
