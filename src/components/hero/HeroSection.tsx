@@ -35,6 +35,39 @@ export default function HeroSection({ isLogged }: { isLogged: boolean }) {
     return () => observer.kill();
   }, [isLogged]);
 
+  // State morphing animation for login transition
+  useGSAP(() => {
+    if (!containerRef.current) return;
+
+    if (isLogged) {
+      // Cinematic Letterboxing effect
+      const tl = gsap.timeline();
+      
+      tl.to(containerRef.current, {
+        height: '40vh',
+        duration: 1.5,
+        ease: 'power4.inOut',
+      })
+      .to('.hero-text', {
+        y: -50,
+        scale: 0.8,
+        transformOrigin: 'left bottom',
+        duration: 1.5,
+        ease: 'power4.inOut',
+      }, '<')
+      .to('.hero-text button', {
+        opacity: 0,
+        display: 'none',
+        duration: 0.5
+      }, '<');
+    } else {
+      // Reset if logged out
+      gsap.to(containerRef.current, { height: '100vh', duration: 1, ease: 'power3.out' });
+      gsap.to('.hero-text', { y: 0, scale: 1, duration: 1 });
+      gsap.to('.hero-text button', { opacity: 1, display: 'block', duration: 0.5 });
+    }
+  }, [isLogged]);
+
   const handleScroll = (direction: number) => {
     if (isAnimating.current) return;
     
