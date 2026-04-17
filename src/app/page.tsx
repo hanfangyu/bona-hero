@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import CinematicLayout from '@/components/hero/CinematicLayout';
-import HeroSection from '@/components/hero/HeroSection';
+import HeroSequence from '@/components/hero/HeroSequence';
 import ProjectWaterfall from '@/components/workspace/ProjectWaterfall';
 
 export default function Home() {
@@ -18,7 +18,7 @@ export default function Home() {
       </button>
 
       <div className="flex flex-col w-full min-h-screen relative">
-         <HeroSection isLogged={isLogged} />
+         <HeroSequence isLogged={isLogged} />
          <ProjectWaterfall isVisible={isLogged} />
       </div>
     </CinematicLayout>
