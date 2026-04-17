@@ -1,13 +1,13 @@
 import CinematicLayout from '@/components/hero/CinematicLayout';
+import HeroSection from '@/components/hero/HeroSection';
 
 export default function Home() {
+  // Mock login state for now
+  const isLogged = false;
+
   return (
     <CinematicLayout>
-      <div className="flex min-h-screen w-full items-center justify-center">
-        <h1 className="text-4xl font-bold tracking-tight text-white">
-          BONA CREATE
-        </h1>
-      </div>
+      <HeroSection isLogged={isLogged} />
     </CinematicLayout>
   );
 }
