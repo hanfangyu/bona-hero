@@ -3,21 +3,24 @@
 import { useState } from 'react';
 import CinematicLayout from '@/components/hero/CinematicLayout';
 import HeroSection from '@/components/hero/HeroSection';
+import ProjectWaterfall from '@/components/workspace/ProjectWaterfall';
 
 export default function Home() {
   const [isLogged, setIsLogged] = useState(false);
 
   return (
     <CinematicLayout>
-      {/* Dev toggle purely for demonstrating the transition */}
       <button 
         onClick={() => setIsLogged(!isLogged)}
-        className="fixed top-4 right-4 z-50 px-4 py-2 bg-white/10 border border-white/20 rounded text-xs uppercase hover:bg-white/20 transition-colors"
+        className="fixed top-6 right-6 z-50 px-6 py-3 glass-panel text-sm font-semibold tracking-wide hover:bg-white/5 transition-all text-white rounded-[10px]"
       >
-        Toggle Login State
+        {isLogged ? 'Sign Out' : 'Sign In'}
       </button>
 
-      <HeroSection isLogged={isLogged} />
+      <div className="flex flex-col w-full min-h-screen relative">
+         <HeroSection isLogged={isLogged} />
+         <ProjectWaterfall isVisible={isLogged} />
+      </div>
     </CinematicLayout>
   );
 }
