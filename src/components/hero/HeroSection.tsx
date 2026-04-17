@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { Observer } from 'gsap/Observer';
@@ -16,8 +16,32 @@ const PRODUCTS = [
 
 export default function HeroSection({ isLogged }: { isLogged: boolean }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const currentIndexRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isAnimating = useRef(false);
+
+  // Keep ref in sync with state
+  const updateIndex = useCallback((newIndex: number) => {
+    currentIndexRef.current = newIndex;
+    setCurrentIndex(newIndex);
+  }, []);
+
+  const handleScroll = useCallback((direction: number) => {
+    if (isAnimating.current) return;
+    
+    const nextIndex = currentIndexRef.current + direction;
+    if (nextIndex >= 0 && nextIndex < PRODUCTS.length) {
+      isAnimating.current = true;
+      updateIndex(nextIndex);
+      
+      gsap.fromTo('.hero-text', 
+        { opacity: 0, scale: 0.95 },
+        { opacity: 1, scale: 1, duration: 0.8, ease: 'power3.out', onComplete: () => {
+          setTimeout(() => { isAnimating.current = false; }, 800);
+        }}
+      );
+    }
+  }, [updateIndex]);
 
   useGSAP(() => {
     if (isLogged || !containerRef.current) return;
@@ -33,14 +57,13 @@ export default function HeroSection({ isLogged }: { isLogged: boolean }) {
     });
 
     return () => observer.kill();
-  }, [isLogged]);
+  }, [isLogged, handleScroll]);
 
-  // State morphing animation for login transition
+// State morphing animation for login transition
   useGSAP(() => {
     if (!containerRef.current) return;
 
     if (isLogged) {
-      // Cinematic Letterboxing effect
       const tl = gsap.timeline();
       
       tl.to(containerRef.current, {
@@ -61,30 +84,11 @@ export default function HeroSection({ isLogged }: { isLogged: boolean }) {
         duration: 0.5
       }, '<');
     } else {
-      // Reset if logged out
       gsap.to(containerRef.current, { height: '100vh', duration: 1, ease: 'power3.out' });
       gsap.to('.hero-text', { y: 0, scale: 1, duration: 1 });
       gsap.to('.hero-text button', { opacity: 1, display: 'block', duration: 0.5 });
     }
   }, [isLogged]);
-
-  const handleScroll = (direction: number) => {
-    if (isAnimating.current) return;
-    
-    const nextIndex = currentIndex + direction;
-    if (nextIndex >= 0 && nextIndex < PRODUCTS.length) {
-      isAnimating.current = true;
-      setCurrentIndex(nextIndex);
-      
-      // Cinematic cut effect
-      gsap.fromTo('.hero-text', 
-        { opacity: 0, scale: 0.95 },
-        { opacity: 1, scale: 1, duration: 0.8, ease: 'power3.out', onComplete: () => {
-          setTimeout(() => { isAnimating.current = false; }, 800); // Snappy debounce
-        }}
-      );
-    }
-  };
 
   const product = PRODUCTS[currentIndex];
 
