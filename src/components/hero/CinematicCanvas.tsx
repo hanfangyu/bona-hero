@@ -20,35 +20,238 @@ interface CinematicCanvasProps {
 export default function CinematicCanvas({ scrollProgress, products, isLogged }: CinematicCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const particlesRef = useRef<Array<{
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    size: number;
-    opacity: number;
-    color: string;
-    life: number;
-  }>>([]);
+  const timeRef = useRef(0);
 
-  const initParticles = useCallback((width: number, height: number, color: string) => {
-    const particles: typeof particlesRef.current = [];
-    const particleCount = Math.floor((width * height) / 8000);
+  const parseColor = (hex: string) => {
+    const h = hex.replace('#', '');
+    return {
+      r: parseInt(h.substring(0, 2), 16),
+      g: parseInt(h.substring(2, 4), 16),
+      b: parseInt(h.substring(4, 6), 16),
+    };
+  };
 
-    for (let i = 0; i < particleCount; i++) {
-      particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.8,
-        vy: (Math.random() - 0.5) * 0.8 + 0.2,
-        size: Math.random() * 3 + 1,
-        opacity: Math.random() * 0.5 + 0.1,
-        color,
-        life: Math.random() * 100 + 100,
-      });
+  const drawBokaScene = useCallback((
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    time: number,
+    color: { r: number; g: number; b: number }
+  ) => {
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`);
+    gradient.addColorStop(0.3, '#0a0a0a');
+    gradient.addColorStop(1, '#000000');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    const lightX = width * 0.15;
+    const lightY = height * 0.3;
+    const lightRadius = width * 0.4;
+    const lightGradient = ctx.createRadialGradient(lightX, lightY, 0, lightX, lightY, lightRadius);
+    lightGradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.25)`);
+    lightGradient.addColorStop(0.3, `rgba(${color.r}, ${color.g}, ${color.b}, 0.08)`);
+    lightGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = lightGradient;
+    ctx.fillRect(0, 0, width, height);
+
+    const filmStripY = (time * 0.02) % height;
+    for (let i = 0; i < 12; i++) {
+      const y = filmStripY - i * 80;
+      if (y > -80 && y < height + 80) {
+        ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${0.08 - i * 0.005})`;
+        ctx.fillRect(0, y, width, 2);
+        ctx.fillStyle = `rgba(0, 0, 0, 0.4)`;
+        ctx.fillRect(0, y - 20, width, 20);
+        ctx.fillRect(0, y + 2, width, 20);
+      }
     }
 
-    particlesRef.current = particles;
+    const flareCount = 5;
+    for (let i = 0; i < flareCount; i++) {
+      const flareProgress = (i * 0.15 + time * 0.001) % 1;
+      const flareX = lightX + flareProgress * width * 0.7;
+      const flareY = lightY + Math.sin(flareProgress * Math.PI) * height * 0.2;
+      const flareWidth = width * 0.15;
+      const flareHeight = height * 0.03 + i * 2;
+      
+      ctx.save();
+      ctx.globalAlpha = 0.15 - i * 0.02;
+      ctx.fillStyle = `rgba(${color.r + 50}, ${color.g + 30}, ${color.b}, 1)`;
+      ctx.beginPath();
+      ctx.ellipse(flareX, flareY, flareWidth, flareHeight, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    const vignette = ctx.createRadialGradient(
+      width * 0.5, height * 0.5, height * 0.3,
+      width * 0.5, height * 0.5, width * 0.7
+    );
+    vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, width, height);
+  }, []);
+
+  const drawBoleScene = useCallback((
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    time: number,
+    color: { r: number; g: number; b: number }
+  ) => {
+    const gradient = ctx.createRadialGradient(
+      width * 0.7, height * 0.4, 0,
+      width * 0.5, height * 0.5, width
+    );
+    gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.25)`);
+    gradient.addColorStop(0.3, '#0a0a0a');
+    gradient.addColorStop(1, '#000000');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    const scanlineOffset = time * 0.5;
+    for (let y = 0; y < height; y += 3) {
+      const alpha = 0.02 + Math.sin((y + scanlineOffset) * 0.01) * 0.01;
+      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+      ctx.fillRect(0, y, width, 1);
+    }
+
+    const waveCount = 8;
+    for (let i = 0; i < waveCount; i++) {
+      const waveY = height * 0.3 + i * height * 0.08;
+      const waveOffset = time * 0.01 + i * 50;
+      
+      ctx.beginPath();
+      ctx.moveTo(0, waveY);
+      for (let x = 0; x < width; x += 10) {
+        const y = waveY + Math.sin((x + waveOffset) * 0.02) * 20 * (1 - i / waveCount);
+        ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${0.15 - i * 0.015})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    const frameWidth = width * 0.6;
+    const frameHeight = height * 0.7;
+    const frameX = (width - frameWidth) / 2;
+    const frameY = (height - frameHeight) / 2;
+    
+    ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.2)`;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(frameX, frameY, frameWidth, frameHeight);
+    
+    ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.05)`;
+    ctx.fillRect(frameX + 10, frameY + 10, frameWidth - 20, frameHeight - 20);
+
+    const centerX = width * 0.5;
+    const centerY = height * 0.5;
+    const rings = 6;
+    for (let i = 0; i < rings; i++) {
+      const radius = (i + 1) * 80 + Math.sin(time * 0.02 + i) * 20;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${0.1 - i * 0.015})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    const vignette = ctx.createRadialGradient(
+      width * 0.5, height * 0.5, height * 0.3,
+      width * 0.5, height * 0.5, width * 0.7
+    );
+    vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, width, height);
+  }, []);
+
+  const drawBowenScene = useCallback((
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    time: number,
+    color: { r: number; g: number; b: number }
+  ) => {
+    const gradient = ctx.createLinearGradient(0, 0, width * 0.3, height);
+    gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.15)`);
+    gradient.addColorStop(0.5, '#0a0a0a');
+    gradient.addColorStop(1, '#000000');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    const lines = 20;
+    for (let i = 0; i < lines; i++) {
+      const startX = width * 0.1 + Math.sin(time * 0.005 + i * 0.5) * 50;
+      const startY = height * 0.2 + i * height * 0.03;
+      const lineLength = width * 0.3 + Math.sin(time * 0.01 + i) * 100;
+      
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(startX + lineLength, startY + Math.sin(time * 0.02 + i * 2) * 5);
+      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${0.08 - i * 0.003})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    const inkDrops = 8;
+    for (let i = 0; i < inkDrops; i++) {
+      const dropX = width * 0.2 + i * width * 0.08;
+      const dropY = height * 0.4 + Math.sin(time * 0.01 + i * 3) * height * 0.1;
+      const dropSize = 15 + Math.sin(time * 0.02 + i * 2) * 10;
+      
+      ctx.beginPath();
+      ctx.arc(dropX, dropY, dropSize, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${0.12 - i * 0.01})`;
+      ctx.fill();
+      
+      if (dropSize > 20) {
+        ctx.beginPath();
+        ctx.arc(dropX, dropY, dropSize * 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.04)`;
+        ctx.fill();
+      }
+    }
+
+    const paperWidth = width * 0.4;
+    const paperHeight = height * 0.5;
+    const paperX = width * 0.55;
+    const paperY = height * 0.25;
+    
+    const paperGradient = ctx.createLinearGradient(paperX, paperY, paperX + paperWidth, paperY);
+    paperGradient.addColorStop(0, 'rgba(255, 255, 255, 0.03)');
+    paperGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.02)');
+    paperGradient.addColorStop(1, 'rgba(255, 255, 255, 0.01)');
+    
+    ctx.fillStyle = paperGradient;
+    ctx.fillRect(paperX, paperY, paperWidth, paperHeight);
+    
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(paperX, paperY, paperWidth, paperHeight);
+
+    const textLines = 10;
+    ctx.font = '12px monospace';
+    for (let i = 0; i < textLines; i++) {
+      const lineY = paperY + 30 + i * 25;
+      const alpha = 0.08 + (i / textLines) * 0.04;
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      
+      const textLength = 30 + Math.floor(Math.random() * 20);
+      const text = Array(textLength).fill('—').join('');
+      ctx.fillText(text, paperX + 20, lineY);
+    }
+
+    const vignette = ctx.createRadialGradient(
+      width * 0.5, height * 0.5, height * 0.3,
+      width * 0.5, height * 0.5, width * 0.7
+    );
+    vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, width, height);
   }, []);
 
   const draw = useCallback(() => {
@@ -67,123 +270,46 @@ export default function CinematicCanvas({ scrollProgress, products, isLogged }: 
     }
 
     ctx.clearRect(0, 0, width, height);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-    const currentProductIndex = Math.floor(scrollProgress * products.length);
-    const safeIndex = Math.min(currentProductIndex, products.length - 1);
+    const segmentProgress = 1 / products.length;
+    const currentIndex = Math.floor(scrollProgress * products.length);
+    const safeIndex = Math.min(currentIndex, products.length - 1);
+    const localProgress = (scrollProgress - safeIndex * segmentProgress) / segmentProgress;
+
     const product = products[safeIndex];
+    const color = parseColor(product.accentColor);
 
-    const baseGradient = ctx.createRadialGradient(
-      width * 0.3, height * 0.3, 0,
-      width * 0.5, height * 0.5, width * 0.8
-    );
+    timeRef.current += 1;
+    const time = timeRef.current;
 
-    const accentColor = product.accentColor;
-    baseGradient.addColorStop(0, accentColor + '25');
-    baseGradient.addColorStop(0.4, '#090909');
-    baseGradient.addColorStop(1, '#000000');
+    if (product.id === 'boka') {
+      drawBokaScene(ctx, width, height, time, color);
+    } else if (product.id === 'bole') {
+      drawBoleScene(ctx, width, height, time, color);
+    } else if (product.id === 'bowen') {
+      drawBowenScene(ctx, width, height, time, color);
+    }
 
-    ctx.fillStyle = baseGradient;
-    ctx.fillRect(0, 0, width, height);
+    if (safeIndex < products.length - 1) {
+      const nextProduct = products[safeIndex + 1];
+      const nextColor = parseColor(nextProduct.accentColor);
+      const transitionProgress = Math.max(0, Math.min(1, (localProgress - 0.7) / 0.3));
 
-    const waveGradient = ctx.createLinearGradient(0, height, width, 0);
-    waveGradient.addColorStop(0, 'rgba(244, 130, 77, 0.08)');
-    waveGradient.addColorStop(scrollProgress, accentColor + '15');
-    waveGradient.addColorStop(1, 'rgba(4, 150, 255, 0.08)');
-
-    ctx.fillStyle = waveGradient;
-    ctx.fillRect(0, 0, width, height);
-
-    const flowY = (scrollProgress * height * 0.5) % height;
-    const flowGradient = ctx.createLinearGradient(0, flowY - 200, 0, flowY + 200);
-    flowGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
-    flowGradient.addColorStop(0.5, accentColor + '08');
-    flowGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-    ctx.fillStyle = flowGradient;
-    ctx.fillRect(0, flowY - 200, width, 400);
-
-    const hexColor = accentColor.replace('#', '');
-    const r = parseInt(hexColor.substring(0, 2), 16);
-    const g = parseInt(hexColor.substring(2, 4), 16);
-    const b = parseInt(hexColor.substring(4, 6), 16);
-
-    initParticles(width, height, accentColor);
-
-    const particles = particlesRef.current;
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-
-      p.x += p.vx;
-      p.y += p.vy;
-      p.life -= 0.5;
-
-      if (p.life <= 0 || p.y > height + 50) {
-        p.x = Math.random() * width;
-        p.y = Math.random() * height * 0.2 - 50;
-        p.life = Math.random() * 100 + 100;
-        p.opacity = Math.random() * 0.5 + 0.1;
-      }
-
-      const lifeRatio = p.life / 200;
-      const alpha = p.opacity * lifeRatio;
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-      ctx.fill();
-
-      if (alpha > 0.3) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.2})`;
-        ctx.fill();
+      if (transitionProgress > 0) {
+        ctx.globalAlpha = transitionProgress;
+        if (nextProduct.id === 'boka') {
+          drawBokaScene(ctx, width, height, time, nextColor);
+        } else if (nextProduct.id === 'bole') {
+          drawBoleScene(ctx, width, height, time, nextColor);
+        } else if (nextProduct.id === 'bowen') {
+          drawBowenScene(ctx, width, height, time, nextColor);
+        }
+        ctx.globalAlpha = 1;
       }
     }
 
-    const beamCount = 3;
-    for (let i = 0; i < beamCount; i++) {
-      const beamProgress = (scrollProgress + i * 0.3) % 1;
-      const beamY = beamProgress * height;
-      const beamWidth = 2 + Math.sin(beamProgress * Math.PI * 2) * 1;
-
-      const beamGradient = ctx.createLinearGradient(0, beamY - 100, 0, beamY + 100);
-      beamGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
-      beamGradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.15)`);
-      beamGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-      ctx.fillStyle = beamGradient;
-      ctx.fillRect(width * (0.3 + i * 0.2), beamY - 100, beamWidth, 200);
-    }
-
-    const centerX = width * 0.5;
-    const centerY = height * 0.4;
-    const maxRadius = Math.min(width, height) * 0.35;
-    const pulseRadius = maxRadius * (0.8 + Math.sin(scrollProgress * Math.PI * 4) * 0.2);
-
-    const pulseGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, pulseRadius);
-    pulseGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.08)`);
-    pulseGradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.03)`);
-    pulseGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-    ctx.fillStyle = pulseGradient;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, pulseRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    const vignetteGradient = ctx.createRadialGradient(
-      width * 0.5, height * 0.5, height * 0.2,
-      width * 0.5, height * 0.5, width * 0.8
-    );
-    vignetteGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    vignetteGradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
-
-    ctx.fillStyle = vignetteGradient;
-    ctx.fillRect(0, 0, width, height);
-
-    const zoomFactor = 1 + scrollProgress * 0.03;
-    ctx.setTransform(zoomFactor, 0, 0, zoomFactor, -(zoomFactor - 1) * width / 2, -(zoomFactor - 1) * height / 2);
-
-  }, [scrollProgress, products, initParticles]);
+  }, [scrollProgress, products, drawBokaScene, drawBoleScene, drawBowenScene]);
 
   useEffect(() => {
     const animate = () => {
@@ -215,7 +341,7 @@ export default function CinematicCanvas({ scrollProgress, products, isLogged }: 
     <canvas
       ref={canvasRef}
       className="fixed inset-0 -z-10 w-full h-full"
-      style={{ background: '#090909' }}
+      style={{ background: '#000' }}
     />
   );
 }
